@@ -29,7 +29,47 @@ export OPENAI_API_KEY=sk-....
 ## Usage
 Run the assistant with a text prompt as an argument.
 ```bash
-python main.py "Could you write me an ansible playbook that installs apache on ubuntu?"
+$ python main.py "Could you write me an ansible playbook that installs apache on ubuntu?"
+🗣️ Talking to OpenAI
+✅ Response received from OpenAI API
+🔍 Linting Ansible script
+💾 Saving code to WIP.yaml
+🏃‍♀️ Running code in Docker
+✅ Code executed successfully!
+🗣️ Talking to OpenAI
+✅ Response received from OpenAI API
+🏃‍♀️ Running tests in Docker
+🔍 Generating docs
+🗣️ Talking to OpenAI
+✅ Response received from OpenAI API
+📺 Script:
+
+---
+title: 'Install Apache on Ubuntu'
+description: 'Install and enable Apache2 service on Ubuntu'
+---
+- name: Install Apache on Ubuntu
+  hosts: all
+  become: true
+  tasks:
+    - name: Update apt package cache
+      apt:
+        update_cache: yes
+
+    - name: Install Apache2
+      apt:
+        name: apache2
+        state: present
+
+    - name: Enable Apache2 service
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+
+
+
+💾 Saved to install_apache_on_ubuntu.yaml
 ```
 
 ## Features
