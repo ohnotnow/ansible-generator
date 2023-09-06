@@ -1,3 +1,5 @@
 __pycache__*
 *.yaml
+test_ansible.py
+
 
