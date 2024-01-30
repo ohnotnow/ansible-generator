@@ -1,4 +1,3 @@
-import openai
 import docker
 import os
 import argparse
@@ -6,7 +5,7 @@ import subprocess
 import yaml
 import json
 from enum import Enum
-
+from openai import OpenAI
 # Define model and token prices
 class Model(Enum):
     GPT4_32k = ('gpt-4-32k', 0.03, 0.06)
@@ -14,7 +13,6 @@ class Model(Enum):
     GPT3_5_Turbo_16k = ('gpt-3.5-turbo-16k', 0.003, 0.004)
     GPT3_5_Turbo = ('gpt-3.5-turbo', 0.0015, 0.002)
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
 openai_model = os.getenv("OPENAI_MODEL", Model.GPT3_5_Turbo.value[0])
 token_count = 0
 
@@ -56,30 +54,40 @@ def lint_ansible_script(ansible_script):
     return True
 
 def get_openai_response(messages=[], functions=None):
-    print('🗣️ Talking to OpenAI')
+    print('💭 Talking to OpenAI')
     global token_count
     openai_args = {}
     openai_args['messages'] = messages
     openai_args['model'] = openai_model
     if functions:
-        function_name = functions[0]['name']
-        openai_args['functions'] = functions
-        openai_args['function_call'] = {"name": function_name}
-
-    response = openai.ChatCompletion.create(**openai_args)
+        openai_args['tools'] = []
+        for function in functions:
+            openai_args['tools'].append({
+                "type": "function",
+                "function": function
+            })
+            openai_args['tool_choice'] = {
+                "type": "function",
+                "function": {"name": function['name']}
+            }
+    api_key = os.getenv("OPENAI_API_KEY")
+    client = OpenAI(api_key=api_key)
+    response = client.chat.completions.create(**openai_args)
 
     print("✅ Response received from OpenAI API")
-    message = response['choices'][0]['message']
-    tokens_used = response['usage']['total_tokens']
+    # message = response['choices'][0]['message']
+    message = response.choices[0].message
+    tokens_used = response.usage.total_tokens
+    # tokens_used = response['usage']['total_tokens']
     token_count += tokens_used
-    if message.get("function_call"):
-        function_name = message["function_call"]["name"]
-        function_args = json.loads(message["function_call"]["arguments"])
+    if message.tool_calls:
+        function_name = message.tool_calls[0].function.name
+        function_args = json.loads(message.tool_calls[0].function.arguments)
         title = function_args.get("title")
         description=function_args.get("description")
         return title, description
     else:
-        reply = message['content'].strip()
+        reply = message.content.strip()
         messages.append({"role": "assistant", "content": reply})
         return reply, messages
 
@@ -115,7 +123,7 @@ def get_ansible_description(ansible_script):
                         "description": "A short description of the Ansible script",
                     }
                 },
-                "required": ["title", "unit"],
+                "required": ["title", "description"],
             },
         }
     ]
@@ -331,7 +339,8 @@ def main():
             # Send errors and previous messages back to API for refinement
             messages.append({"role": "user", "content": f"Execution failed: {errors} {output}"})
             retries += 1
-            print(f"❌ Execution failed: {errors}\n\n{output}\n")
+            # print(f"❌ Execution failed: {errors}\n\n{output}\n")
+            print(f"❌ Execution failed\n")
             print("(Ignoring for demo)")
             # break
         front_matter = get_ansible_description(code)
