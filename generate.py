@@ -6,22 +6,31 @@ import yaml
 import json
 from enum import Enum
 from openai import OpenAI
+import datetime
 # Define model and token prices
 class Model(Enum):
     GPT4_32k = ('gpt-4-32k', 0.03, 0.06)
     GPT4 = ('gpt-4', 0.06, 0.12)
     GPT3_5_Turbo_16k = ('gpt-3.5-turbo-16k', 0.003, 0.004)
     GPT3_5_Turbo = ('gpt-3.5-turbo', 0.0015, 0.002)
+    GPT3_5_Turbo_0125 = ('gpt-3.5-turbo-0125', 0.0005, 0.0015)
 
-openai_model = os.getenv("OPENAI_MODEL", Model.GPT3_5_Turbo.value[0])
+openai_model = os.getenv("OPENAI_MODEL", Model.GPT3_5_Turbo_0125.value[0])
+print(f"Using OpenAI model: {openai_model}\n")
+input_token_count = 0
+output_token_count = 0
 token_count = 0
 
-def get_token_price(token_count, model_engine=openai_model):
+def get_token_price(token_count, model_engine=openai_model, direction="output"):
     token_price_input = 0
     token_price_output = 0
+    if direction == "input":
+        cost_offset = 1
+    else:
+        cost_offset = 2
     for model in Model:
         if model_engine.startswith(model.value[0]):
-            token_price_output = model.value[2] / 1000
+            token_price_output = model.value[cost_offset] / 1000
             break
     return round(token_price_output * token_count, 4)
 
@@ -56,6 +65,8 @@ def lint_ansible_script(ansible_script):
 def get_openai_response(messages=[], functions=None):
     print('💭 Talking to OpenAI')
     global token_count
+    global input_token_count
+    global output_token_count
     openai_args = {}
     openai_args['messages'] = messages
     openai_args['model'] = openai_model
@@ -78,6 +89,8 @@ def get_openai_response(messages=[], functions=None):
     # message = response['choices'][0]['message']
     message = response.choices[0].message
     tokens_used = response.usage.total_tokens
+    input_token_count += response.usage.prompt_tokens
+    output_token_count += response.usage.completion_tokens
     # tokens_used = response['usage']['total_tokens']
     token_count += tokens_used
     if message.tool_calls:
@@ -353,8 +366,21 @@ def main():
         with open(filename, "w") as f:
             f.write(finished_script)
         print(f"💾 Saved to {filename}")
-        print(f"💰 Token price: US${get_token_price(token_count)} for {token_count} tokens\n\n")
+        input_costs = get_token_price(input_token_count, openai_model, "input")
+        output_costs = get_token_price(output_token_count, openai_model, "output")
+        total_cost = input_costs + output_costs
+        print(f"💰 Token price: US${total_cost} for {token_count} tokens")
         break
 
 if __name__ == "__main__":
+    now = datetime.datetime.now()
     main()
+    run_time = (datetime.datetime.now() - now).total_seconds()
+    run_time = round(run_time)
+    # if the run time is > 120 seconds, convert to minutes
+    if run_time > 120:
+        run_time = run_time / 60
+        print(f"🕰️ Took {run_time} minutes to run")
+    else:
+        print(f"🕰️ Took {run_time} seconds to run")
+    print("\n\n")
