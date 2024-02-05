@@ -175,7 +175,7 @@ def get_infratest_script(ansible_script):
 def get_ansible_script(prompt, messages=None):
     # set the initial system prompt
     conversation = [
-        {"role": "system", "content": "You are a terse assistant specialized in generating Ansible scripts. You must ALWAYS respond with just code - no explanations, no comments, no markdown formatting."}
+        {"role": "system", "content": "You are a terse assistant specialized in generating Ansible scripts. You must ALWAYS respond with just code - no explanations, no comments, no markdown formatting. You always try to follow best practice when writing scripts making them clear, concise, adhering to DRY principles."}
     ]
 
     if messages:
